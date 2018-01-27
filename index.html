@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>IT jobs in Poland</title>
+  <link rel="stylesheet" type="text/css" href="bootstrap.min.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+</head>
+<body>
+  <ul class="nav">
+    <li class="nav-item">
+      <a class="nav-link active" href="index.html">Home</a>
+    </li>
+
+    <li class="nav-item">
+      <a class="nav-link" href="about.html">About</a>
+    </li>
+  </ul>
+
+  <div class="container-fluid">
+    <div class="alert alert-light" role="alert">
+      IT jobs offers in Poland (based on <a href="http://4programmers.pl/Praca" target="_blank">4programmers.pl</a>)
+      <br>
+
+      (Salaries are in <span class="font-weight-bold">PLN</span> - whenever original offer was in different currency, it was exchanged to PLN)
+    </div>
+
+    <div class="col-6">
+      <select id="languages">
+      </select>
+
+      <select id="cities">
+      </select>
+    </div>
+
+    <br>
+
+    <div class="col-6" id="links"></div>
+
+    <br>
+
+    <div class="col-6" id="languageSummary"></div>
+
+    <br>
+
+    <div class="col-8" id="bestOffers"></div>
+
+    <br>
+
+    <div class="col-8" id="mostPopularCities"></div>
+
+    <br>
+
+    <div class="col-8" id="mostPopularTechnologies"></div>
+  </div>
+
+  <script type="text/template" class="template" id="linksTemplate">
+    <% if(city == 'any') { %>
+      <% inCity = 'anywhere' %>
+    <% } else { %>
+      <% if(city == 'remote') { %>
+        <% inCity = 'remotely' %>
+      <% } else { %>
+        <% inCity = "in " + city %>
+      <% } %>
+    <% } %>
+
+    <a href="#languageSummary">Show <%= name %> <%= inCity %> summary </a>
+    <br>
+    <a href="#bestOffers">Show <%= name %> <%= inCity %> best offers </a>
+    <br>
+
+    <% if (city == "any") { %>
+      <a href="#mostPopularCities">Show <%= name %> <%= inCity %> most popular cities </a>
+      <br>
+    <% } %>
+
+    <a href="#mostPopularTechnologies">Show <%= name %> <%= inCity %> most popular technologies related to</a>
+  </script>
+
+  <script type="text/template" class="template" id="languagesTemplate">
+    <select>
+      <% _.each(items, function(item) { %>
+        <option value="<%= item.value %>"><%= item.name %> </option>
+      <% }); %>
+    </select>
+  </script>
+
+  <script type="text/template" class="template" id="citiesTemplate">
+    <select>
+      <% _.each(items, function(item) { %>
+        <option value="<%= item.value %>"><%= item.name %> </option>
+      <% }); %>
+    </select>
+  </script>
+
+  <script type="text/template" class="template" id="languageSummaryTemplate">
+    <table class="table">
+      <thead>
+        <tr>
+          <td>Offers count</td>
+          <td>Offers with salary count</td>
+          <td>Min salary</td>
+          <td>Max salary</td>
+        </tr>
+      </thead>
+
+      <tbody>
+        <tr>
+          <td><%= count %></td>
+          <td><%= withSalaryCount %></td>
+          <td><%= min %></td>
+          <td><%= max %></td>
+        </tr>
+      </tbody>
+    </table>
+  </script>
+
+  <script type="text/template" class="template" id="bestOffersTemplate">
+    <ul class="list-group">
+      <% _.each(items, function(item) { %>
+
+        <a href="<%= item.link %>" target="_blank">
+          <li class="list-group-item d-flex justify-content-between align-items-center">
+
+            <%= item.text %>
+            <span class="badge badge-primary badge-pill"><%= item.money %></span>
+          </li>
+        </a>
+
+      <% }); %>
+    </ul>
+  </script>
+
+  <script type="text/template" class="template" id="mostPopularCitiesTemplate">
+    <% if (city == "any") { %>
+      <table class="table table-bordered">
+        <thead>
+          <tr>
+            <td>Location</td>
+            <td>Offers count</td>
+            <td>Salary [if provided]</td>
+          </tr>
+        </thead>
+
+        <tbody>
+          <% _.each(items, function(item) { %>
+          <tr>
+            <td><%= item.location %></td>
+            <td><%= item.count %></td>
+            <td><%= item.money %></td>
+          </tr>
+          <% }); %>
+        </thead>
+      </table>
+    <% } %>
+  </script>
+
+  <script type="text/template" class="template" id="mostPopularTechnologiesTemplate">
+    <table class="table table-bordered">
+      <thead>
+        <tr>
+          <td>Technology</td>
+          <td>Offers count</td>
+          <td>Salary [if provided]</td>
+        </tr>
+      </thead>
+
+      <tbody>
+        <% _.each(items, function(item) { %>
+        <tr>
+          <td><%= item.tag %></td>
+          <td><%= item.count %></td>
+          <td><%= item.money %></td>
+        </tr>
+        <% }); %>
+      </thead>
+    </table>
+  </script>
+
+  <script type="text/javascript" src="json.js"></script>
+  <script type="text/javascript" src="underscore.js"></script>
+  <script type="text/javascript" src="m.js"></script>
+</body>
+</html>
