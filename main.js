@@ -1,16 +1,54 @@
 window.App = {}
 window.App.templates = {}
 
+function exchanger(currentCurrency, currenciesMapping) {
+  var upperCurrentCurrency = currentCurrency.toUpperCase();
+
+  return {
+    to: function(value, OfferCurrency) {
+      if (value == 0) {
+        return 0
+      }
+
+      if (!OfferCurrency) {
+        throw new Error("Unknown OfferCurrency")
+      }
+
+      var upperOfferCurrency = OfferCurrency.toUpperCase();
+
+      if (upperCurrentCurrency == upperOfferCurrency) {
+        return value
+      }
+
+      var roe = currenciesMapping[upperOfferCurrency][upperCurrentCurrency]
+
+      result = roe * value;
+
+      return Math.round(result * 100) / 100
+    }
+  }
+}
+
+function getMinMoney(offer) {
+  return offer.cc_min_money;
+  // return window.App.exchanger.to(offer.min_money, offer.currency)
+}
+
+function getMaxMoney(offer) {
+  return offer.cc_max_money;
+  // return window.App.exchanger.to(offer.max_money, offer.currency)
+}
+
 function selectOffersWithMax(offers) {
-  return _.select(offers, function(offer) { return offer.max_money > 0 })
+  return _.select(offers, function(offer) { return offer.cc_max_money > 0 })
 }
 
 function selectOffersWithMin(offers) {
-  return _.select(offers, function(offer) { return offer.min_money > 0 })
+  return _.select(offers, function(offer) { return offer.cc_min_money > 0 })
 }
 
 function selectOffersWithMinOrMax(offers) {
-  return _.select(offers, function(offer) { return offer.min_money > 0 || offer.max_money > 0})
+  return _.select(offers, function(offer) { return offer.cc_min_money > 0 || offer.cc_max_money > 0})
 }
 
 function selectOffersWithCity(offers, city) {
@@ -33,12 +71,12 @@ function sortKeys(obj, comparator) {
 
 // max money come first
 function sortByMax(offers) {
-  return _.sortBy(offers, function(offer) { return -offer.max_money });
+  return _.sortBy(offers, function(offer) { return -offer.cc_max_money });
 }
 
 // min money come first
 function sortByMin(offers) {
-  return _.sortBy(offers, function(offer) { return offer.min_money });
+  return _.sortBy(offers, function(offer) { return offer.cc_min_money });
 }
 
 function getCityToOffersCountMapping(allLanguagesData) {
@@ -89,11 +127,16 @@ function findLanguageData(items, language) {
 }
 
 function salaryRangeText(offersByMin, offersByMax) {
-  if (offersByMin[0] && offersByMin[0].min_money > 0) {
-    return offersByMin[0].min_money + " - " + offersByMax[0].max_money + " PLN";
+  if (offersByMin[0] && offersByMin[0].cc_min_money > 0) {
+    var minMoney = getMinMoney(offersByMin[0]);
+    var maxMoney = getMaxMoney(offersByMax[0]);
+
+    return minMoney + " - " + maxMoney + " " + window.App.currency;
   } else {
-    if (offersByMax[0] && offersByMax[0].max_money > 0) {
-      return "up to " + offersByMax[0].max_money + " PLN";
+    if (offersByMax[0] && offersByMax[0].cc_max_money > 0) {
+      var maxMoney = getMaxMoney(offersByMax[0]);
+
+      return "up to " + maxMoney + " " + window.App.currency;
     } else {
       return "no info";
     }
@@ -193,16 +236,27 @@ function renderLanguageSummary(languageData, city) {
   }
 
   if (offersWithMin.length > 0) {
-    min = sortByMin(offersWithMin)[0].min_money
+    var minOffer = sortByMin(offersWithMin)[0];
+
+    min = getMinMoney(minOffer);
   }
 
   if (offersWithMax.length > 0) {
-    max = sortByMax(offersWithMax)[0].max_money
+    var maxOffer = sortByMax(offersWithMax)[0]
+
+    max = getMaxMoney(maxOffer);
   }
+
+  var percentage = 0;
+  if (offers.length > 0) {
+    percentage = Math.round(((howManyProvidedSalary * 100) / offers.length))
+  }
+
+  withSalaryCount = howManyProvidedSalary + " (" + percentage + "%)"
 
   var data = {
     count: offers.length,
-    withSalaryCount: howManyProvidedSalary,
+    withSalaryCount: withSalaryCount,
     min: min,
     max: max
   }
@@ -248,6 +302,18 @@ function renderCitiesSelect(allLanguagesData) {
   renderTemplate('cities', 'citiesTemplate', { items: displayItems });
 }
 
+function renderCurrenciesSelect(currenciesMapping) {
+  var displayItems = [{ value: "PLN", name: "PLN" }]
+
+  _.each(currenciesMapping, function(roe, currency) {
+    if (currency != 'PLN') {
+      displayItems.push({ name: currency, value: currency })
+    }
+  });
+
+  renderTemplate('currencies', 'currenciesTemplate', { items: displayItems });
+}
+
 function renderLanguagesSelect(allLanguagesData) {
   var sorted = _.sortBy(allLanguagesData, function(languageData) { return -languageData.offers.length })
 
@@ -260,14 +326,9 @@ function renderLanguagesSelect(allLanguagesData) {
 
 function render() {
   log("rendering");
-
   var languageData = findLanguageData(window.App.json, window.App.language)
 
-  if (window.App.city == 'any') {
-    languageData.selectedCityOffers = languageData.offers
-  } else {
-    languageData.selectedCityOffers = selectOffersWithCity(languageData.offers, window.App.city)
-  }
+  assignSelectedCityOffers()
 
   renderTimestamp(window.timestamp);
   renderLinks(languageData, window.App.city)
@@ -275,6 +336,26 @@ function render() {
   renderBestOffers(languageData, window.App.city);
   renderLanguageMostPopularCities(languageData, window.App.city);
   renderMostPopularTags(languageData, window.App.city);
+}
+
+function assignSelectedCityOffers() {
+  var languageData = findLanguageData(window.App.json, window.App.language)
+
+  if (window.App.city == 'any') {
+    languageData.selectedCityOffers = languageData.offers
+  } else {
+    languageData.selectedCityOffers = selectOffersWithCity(languageData.offers, window.App.city)
+  }
+}
+
+function recalculatePricesAfterCurrencyChange() {
+  _.each(window.App.json, function(languageData) {
+    _.each(languageData.selectedCityOffers, function(offer) {
+      log(offer)
+      offer.cc_min_money = window.App.exchanger.to(offer.provider_min_money, offer.provider_currency)
+      offer.cc_max_money = window.App.exchanger.to(offer.provider_max_money, offer.provider_currency)
+    });
+  });
 }
 
 function selectLanguage(languageName) {
@@ -293,11 +374,24 @@ function selectCity(city) {
   render()
 }
 
+function selectCurrency(currency) {
+  log("Selecting new currency: " + currency);
+
+  window.App.currency = currency;
+  window.App.exchanger = exchanger(window.App.currency, window.App.currencies)
+
+  recalculatePricesAfterCurrencyChange()
+
+  render()
+}
+
 document.addEventListener("DOMContentLoaded", function() {
   window.App.json = JSON.parse(window.json)
+  window.App.currencies = JSON.parse(window.currencies)
 
   renderLanguagesSelect(window.App.json)
   renderCitiesSelect(window.App.json);
+  renderCurrenciesSelect(window.App.currencies);
 
   languagesSelect = document.getElementById("languages");
   languagesSelect.addEventListener("change", function(event) {
@@ -309,8 +403,18 @@ document.addEventListener("DOMContentLoaded", function() {
     selectCity(event.target.value);
   });
 
-  window.App.language = languagesSelect.children[0].value
-  window.App.city     = citiesSelect.children[0].value
+  currenciesSelect = document.getElementById("currencies");
+  currenciesSelect.addEventListener("change", function(event) {
+    selectCurrency(event.target.value);
+  });
 
-  render();
+  window.App.language  = languagesSelect.children[0].value
+  window.App.city      = citiesSelect.children[0].value
+  window.App.currency  = currenciesSelect.children[0].value
+  window.App.exchanger = exchanger(window.App.currency, window.App.currencies)
+
+  assignSelectedCityOffers()
+  recalculatePricesAfterCurrencyChange()
+
+  render()
 });
