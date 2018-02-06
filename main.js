@@ -1,6 +1,21 @@
 window.App = {}
 window.App.templates = {}
 
+function currencySign(currency) {
+  var currencySafe = currency || '';
+
+  switch(currencySafe.toUpperCase()) {
+    case "PLN": return "zł";
+    case "USD": return "$";
+    case "GBP": return "£";
+    case "EUR": return "€";
+    default:
+      log("unknown currency")
+      log(currency)
+      return ""
+  }
+}
+
 function exchanger(currentCurrency, currenciesMapping) {
   var upperCurrentCurrency = currentCurrency.toUpperCase();
 
@@ -39,6 +54,20 @@ function getMaxMoney(offer) {
   // return window.App.exchanger.to(offer.max_money, offer.currency)
 }
 
+function getMinMoneyInProviderCurrency(offer) {
+  return offer.provider_min_money;
+  // return window.App.exchanger.to(offer.min_money, offer.currency)
+}
+
+function getMaxMoneyInProviderCurrency(offer) {
+  return offer.provider_max_money;
+  // return window.App.exchanger.to(offer.max_money, offer.currency)
+}
+
+function selectOffersWithCurrency(offers, currency) {
+  return _.select(offers, function(offer) { return offer.provider_currency == currency })
+}
+
 function selectOffersWithMax(offers) {
   return _.select(offers, function(offer) { return offer.cc_max_money > 0 })
 }
@@ -71,12 +100,12 @@ function sortKeys(obj, comparator) {
 
 // max money come first
 function sortByMax(offers) {
-  return _.sortBy(offers, function(offer) { return -offer.cc_max_money });
+  return _.sortBy(offers, function(offer) { return -offer.max_money });
 }
 
 // min money come first
 function sortByMin(offers) {
-  return _.sortBy(offers, function(offer) { return offer.cc_min_money });
+  return _.sortBy(offers, function(offer) { return offer.min_money });
 }
 
 function getCityToOffersCountMapping(allLanguagesData) {
@@ -131,12 +160,12 @@ function salaryRangeText(offersByMin, offersByMax) {
     var minMoney = getMinMoney(offersByMin[0]);
     var maxMoney = getMaxMoney(offersByMax[0]);
 
-    return minMoney + " - " + maxMoney + " " + window.App.currency;
+    return minMoney + " - " + maxMoney + " " + currencySign(window.App.currency);
   } else {
     if (offersByMax[0] && offersByMax[0].cc_max_money > 0) {
       var maxMoney = getMaxMoney(offersByMax[0]);
 
-      return "up to " + maxMoney + " " + window.App.currency;
+      return "up to " + maxMoney + " " + currencySign(window.App.currency);
     } else {
       return "no info";
     }
@@ -194,7 +223,7 @@ function renderLanguageMostPopularCities(languageData, city){
 
       displayItems.push(
         {
-          location: name,
+          location: getCityName(name),
           count: count,
           money: salaryRangeText(sortByMin(offers), sortByMax(offers))
         }
@@ -228,8 +257,10 @@ function renderLanguageSummary(languageData, city) {
   var howManyProvidedSalary = selectOffersWithMinOrMax(offers).length;
   var offersWithMax         = selectOffersWithMax(offers);
   var offersWithMin         = selectOffersWithMin(offers);
-  var min                   = null;
-  var max                   = null;
+  var min                   = '';
+  var minCurrency           = '';
+  var max                   = '';
+  var maxCurrency           = '';
 
   if (offersWithMin.length == 0) {
     offersWithMin = offersWithMax
@@ -239,12 +270,14 @@ function renderLanguageSummary(languageData, city) {
     var minOffer = sortByMin(offersWithMin)[0];
 
     min = getMinMoney(minOffer);
+    minCurrency = currencySign(window.App.currency);
   }
 
   if (offersWithMax.length > 0) {
     var maxOffer = sortByMax(offersWithMax)[0]
 
     max = getMaxMoney(maxOffer);
+    maxCurrency = currencySign(window.App.currency);
   }
 
   var percentage = 0;
@@ -257,8 +290,8 @@ function renderLanguageSummary(languageData, city) {
   var data = {
     count: offers.length,
     withSalaryCount: withSalaryCount,
-    min: min,
-    max: max
+    min: min + ' ' + minCurrency,
+    max: max + ' ' + maxCurrency
   }
 
   renderTemplate('languageSummary', 'languageSummaryTemplate', data)
@@ -276,7 +309,7 @@ function renderBestOffers(languageData, city) {
     var texts = []
 
     if (city == 'any') {
-      texts.push(offer.city)
+      texts.push(getCityName(offer.city))
     }
 
     texts.push(_.select(offer.tags, function(tag) { return tag != languageData.name }).join(", "))
@@ -291,12 +324,33 @@ function renderBestOffers(languageData, city) {
   renderTemplate('bestOffers', 'bestOffersTemplate', { items: _.take(displayItems, 15) });
 }
 
+function getCityName(city) {
+  switch(city) {
+    case 'Warszawa': return 'Warsaw';
+    case 'Kraków': return 'Cracow';
+    case 'remote': return 'REMOTE';
+    case 'Wrocław': return 'Wroclaw';
+    case 'Poznań': return 'Poznan';
+    case 'Katowice': return 'Katowice';
+    case 'Gdańsk': return 'Gdansk';
+    case 'Zielona góra': return 'Zielona Góra';
+    case 'Londyn': return 'London';
+    case 'Gliwice': return 'Gliwice'
+    case 'Malta': return 'Malta';
+    default:
+      return city
+  }
+
+}
+
 function renderCitiesSelect(allLanguagesData) {
   var displayItems = [{ value: "any", name: "Any Location" }];
   var mapping      = getCityToOffersCountMapping(allLanguagesData);
 
   _.each(mapping, function(count, city) {
-    displayItems.push({ name: city, value: city })
+    var name = getCityName(city);
+
+    displayItems.push({ name: name, value: city })
   });
 
   renderTemplate('cities', 'citiesTemplate', { items: displayItems });
@@ -343,16 +397,15 @@ function assignSelectedCityOffers() {
   var languageData = findLanguageData(window.App.json, window.App.language)
 
   if (window.App.city == 'any') {
-    languageData.selectedCityOffers = languageData.offers
+    languageData.selectedCityOffers = selectOffersWithCurrency(languageData.offers, 'pln')
   } else {
-    languageData.selectedCityOffers = selectOffersWithCity(languageData.offers, window.App.city)
+    languageData.selectedCityOffers = selectOffersWithCurrency(selectOffersWithCity(languageData.offers, window.App.city), 'pln')
   }
 }
 
 function recalculatePricesAfterCurrencyChange() {
   _.each(window.App.json, function(languageData) {
     _.each(languageData.selectedCityOffers, function(offer) {
-      log(offer)
       offer.cc_min_money = window.App.exchanger.to(offer.provider_min_money, offer.provider_currency)
       offer.cc_max_money = window.App.exchanger.to(offer.provider_max_money, offer.provider_currency)
     });
