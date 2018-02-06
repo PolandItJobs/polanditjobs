@@ -329,6 +329,7 @@ function render() {
   var languageData = findLanguageData(window.App.json, window.App.language)
 
   assignSelectedCityOffers()
+  recalculatePricesAfterCurrencyChange()
 
   renderTimestamp(window.timestamp);
   renderLinks(languageData, window.App.city)
@@ -380,8 +381,6 @@ function selectCurrency(currency) {
   window.App.currency = currency;
   window.App.exchanger = exchanger(window.App.currency, window.App.currencies)
 
-  recalculatePricesAfterCurrencyChange()
-
   render()
 }
 
@@ -412,9 +411,6 @@ document.addEventListener("DOMContentLoaded", function() {
   window.App.city      = citiesSelect.children[0].value
   window.App.currency  = currenciesSelect.children[0].value
   window.App.exchanger = exchanger(window.App.currency, window.App.currencies)
-
-  assignSelectedCityOffers()
-  recalculatePricesAfterCurrencyChange()
 
   render()
 });
