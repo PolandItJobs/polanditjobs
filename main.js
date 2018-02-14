@@ -316,6 +316,7 @@ function renderBestOffers(languageData, city) {
 
     return {
       money: salaryRangeText([offer], [offer]),
+      is_gross: offer.is_gross,
       link: offer.link,
       text: texts.join("; ")
     }
